@@ -11,6 +11,13 @@ const newTask = () => ({
   chainType: 'Critical Chain'
 })
 
+const DEFAULT_BEHAVIOUR = {
+  studentSyndrome:       { enabled: true, floatConsumed: 60 },
+  parkinsonsLaw:         { enabled: true, passThrough: 10 },
+  multitasking:          { enabled: true, maxConcurrent: 3 },
+  switchingCosts:        { enabled: true, productivityLoss: 20 },
+}
+
 export const useProjectStore = create((set, get) => ({
   // Project metadata
   projectName: '',
@@ -21,6 +28,9 @@ export const useProjectStore = create((set, get) => ({
 
   // Tasks
   tasks: [newTask()],
+
+  // Behaviour config
+  behaviour: { ...DEFAULT_BEHAVIOUR },
 
   // ── Project metadata ──────────────────────────────────────────────────────
   setProjectName: (name) => set({ projectName: name }),
@@ -59,10 +69,17 @@ export const useProjectStore = create((set, get) => ({
         .map((t) => ({ ...t, dependencies: t.dependencies.filter((d) => d !== id) }))
     })),
 
+  // ── Behaviour config ───────────────────────────────────────────────────────
+  setBehaviourToggle: (key, enabled) =>
+    set((s) => ({ behaviour: { ...s.behaviour, [key]: { ...s.behaviour[key], enabled } } })),
+
+  setBehaviourParam: (key, param, value) =>
+    set((s) => ({ behaviour: { ...s.behaviour, [key]: { ...s.behaviour[key], [param]: value } } })),
+
   // ── Persistence ────────────────────────────────────────────────────────────
   getSnapshot: () => {
-    const { projectName, timeUnit, resources, tasks } = get()
-    return { projectName, timeUnit, resources, tasks }
+    const { projectName, timeUnit, resources, tasks, behaviour } = get()
+    return { projectName, timeUnit, resources, tasks, behaviour }
   },
 
   loadSnapshot: (data) => {
@@ -71,7 +88,8 @@ export const useProjectStore = create((set, get) => ({
       projectName: data.projectName ?? '',
       timeUnit: data.timeUnit ?? 'Weeks',
       resources: data.resources ?? [newResource()],
-      tasks: data.tasks ?? [newTask()]
+      tasks: data.tasks ?? [newTask()],
+      behaviour: data.behaviour ?? { ...DEFAULT_BEHAVIOUR },
     })
   }
 }))
