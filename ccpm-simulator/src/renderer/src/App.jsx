@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useProjectStore } from './store/projectStore'
 import ProjectSetup from './screens/ProjectSetup'
 import BehaviourConfig from './screens/BehaviourConfig'
 import RunSimulation from './screens/RunSimulation'
@@ -11,15 +12,31 @@ const NAV_ITEMS = [
   { id: 'report', label: 'Report' }
 ]
 
-const SCREENS = {
-  'project-setup': <ProjectSetup />,
-  'behaviour-config': <BehaviourConfig />,
-  'run-simulation': <RunSimulation />,
-  report: <Report />
-}
-
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('project-setup')
+  const getSnapshot = useProjectStore((s) => s.getSnapshot)
+  const loadSnapshot = useProjectStore((s) => s.loadSnapshot)
+
+  const handleSave = async () => {
+    const result = await window.api.saveProject(getSnapshot())
+    if (result?.success) console.log('Project saved to', result.filePath)
+  }
+
+  const handleLoad = async () => {
+    const data = await window.api.loadProject()
+    if (data) loadSnapshot(data)
+  }
+
+  const renderScreen = () => {
+    const props = { onNavigate: setCurrentScreen }
+    switch (currentScreen) {
+      case 'project-setup':    return <ProjectSetup {...props} />
+      case 'behaviour-config': return <BehaviourConfig {...props} />
+      case 'run-simulation':   return <RunSimulation {...props} />
+      case 'report':           return <Report {...props} />
+      default:                 return null
+    }
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -34,25 +51,19 @@ export default function App() {
           <p className="text-xs text-slate-400 mt-0.5">Theory of Constraints</p>
         </div>
 
-        {/* File actions */}
+        {/* Save / Load */}
         <div className="px-4 py-3 border-b border-slate-700 flex gap-2">
           <button
-            onClick={async () => {
-              const result = await window.api.saveProject({ screen: currentScreen })
-              if (result?.success) console.log('Project saved to', result.filePath)
-            }}
+            onClick={handleSave}
             className="flex-1 text-xs py-1.5 px-3 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
           >
-            Save
+            Save Project
           </button>
           <button
-            onClick={async () => {
-              const data = await window.api.loadProject()
-              if (data) console.log('Project loaded:', data)
-            }}
+            onClick={handleLoad}
             className="flex-1 text-xs py-1.5 px-3 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
           >
-            Load
+            Load Project
           </button>
         </div>
 
@@ -83,8 +94,8 @@ export default function App() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 bg-white overflow-auto">
-        {SCREENS[currentScreen]}
+      <main className="flex-1 bg-white overflow-hidden flex flex-col">
+        {renderScreen()}
       </main>
     </div>
   )
