@@ -32,6 +32,9 @@ export const useProjectStore = create((set, get) => ({
   // Behaviour config
   behaviour: { ...DEFAULT_BEHAVIOUR },
 
+  // Simulation results (set after a run completes)
+  simulationResults: null,
+
   // ── Project metadata ──────────────────────────────────────────────────────
   setProjectName: (name) => set({ projectName: name }),
   setTimeUnit: (unit) => set({ timeUnit: unit }),
@@ -69,6 +72,9 @@ export const useProjectStore = create((set, get) => ({
         .map((t) => ({ ...t, dependencies: t.dependencies.filter((d) => d !== id) }))
     })),
 
+  // ── Simulation results ─────────────────────────────────────────────────────
+  setSimulationResults: (results) => set({ simulationResults: results }),
+
   // ── Behaviour config ───────────────────────────────────────────────────────
   setBehaviourToggle: (key, enabled) =>
     set((s) => ({ behaviour: { ...s.behaviour, [key]: { ...s.behaviour[key], enabled } } })),
@@ -78,8 +84,8 @@ export const useProjectStore = create((set, get) => ({
 
   // ── Persistence ────────────────────────────────────────────────────────────
   getSnapshot: () => {
-    const { projectName, timeUnit, resources, tasks, behaviour } = get()
-    return { projectName, timeUnit, resources, tasks, behaviour }
+    const { projectName, timeUnit, resources, tasks, behaviour, simulationResults } = get()
+    return { projectName, timeUnit, resources, tasks, behaviour, simulationResults }
   },
 
   loadSnapshot: (data) => {
@@ -90,6 +96,7 @@ export const useProjectStore = create((set, get) => ({
       resources: data.resources ?? [newResource()],
       tasks: data.tasks ?? [newTask()],
       behaviour: data.behaviour ?? { ...DEFAULT_BEHAVIOUR },
+      simulationResults: data.simulationResults ?? null,
     })
   }
 }))
