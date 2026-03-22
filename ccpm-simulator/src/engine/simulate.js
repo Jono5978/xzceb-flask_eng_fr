@@ -67,8 +67,11 @@ function percentile(arr, p) {
  */
 function averageTimeSeries(seriesArr, valueKey) {
   if (!seriesArr.length) return []
-  const maxTime = Math.ceil(Math.max(...seriesArr.flat().map((p) => p.time)))
-  if (!isFinite(maxTime) || maxTime <= 0) return []
+  const rawMax = Math.ceil(Math.max(...seriesArr.flat().map((p) => p.time)))
+  if (!isFinite(rawMax) || rawMax <= 0) return []
+  // Cap at 5000 buckets to prevent runaway memory on very large durations.
+  // If capped, we sample at 5000 evenly-spaced integer steps.
+  const maxTime = Math.min(rawMax, 5000)
   // Build per-bucket sums
   const sums = new Float64Array(maxTime + 1)
   const counts = new Uint32Array(maxTime + 1)
@@ -365,13 +368,7 @@ function runCcpmIteration(tasks, taskMap, order, cfg) {
   const actualFinish = new Map()
   const resourceLastFinish = new Map() // for CC tasks: strict serial per resource
 
-  // Process in topo order, CC tasks first within each "ready" wave
-  const ccOrder = order.filter((id) => ccIds.has(id))
-  const nonCcOrder = order.filter((id) => !ccIds.has(id))
-  const scheduleOrder = [...ccOrder, ...nonCcOrder]
-
-  // We need to re-sort respecting dependencies while giving CC priority
-  // Simple approach: process in topo order; CC tasks use WIP=1 per resource
+  // Process in topo order; CC tasks use WIP=1 per resource
   for (const id of order) {
     const t = taskMap.get(id)
     const isCC = ccIds.has(id)
@@ -440,7 +437,7 @@ function runCcpmIteration(tasks, taskMap, order, cfg) {
     ? clamp((finalSlip / projectBufferSize) * 100, 0, 100) : 0
   bufferTrace.push({ time: actualCCEnd, pct: finalPct })
 
-  const finishTime = actualCCEnd  // report CC end; buffer absorbs overrun
+  const finishTime = Math.max(...actualFinish.values())
   return { finishTime, criticalChainDuration, projectBufferSize, bufferTrace }
 }
 

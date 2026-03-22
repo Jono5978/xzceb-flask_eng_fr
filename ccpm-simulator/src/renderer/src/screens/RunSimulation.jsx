@@ -6,7 +6,6 @@ import { runSimulation } from '../../../engine/simulate.js'
 
 const TOTAL_ITERATIONS = 500
 const BATCH_SIZE = 50
-const NUM_BATCHES = TOTAL_ITERATIONS / BATCH_SIZE
 
 // ─── Percentile helper (for merging batched results) ─────────────────────────
 

@@ -8,6 +8,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 750,
+    title: 'CCPM Simulator',
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),

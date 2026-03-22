@@ -404,6 +404,7 @@ export default function Report({ onNavigate }) {
   const resources       = useProjectStore((s) => s.resources)
   const simulationResults = useProjectStore((s) => s.simulationResults)
   const getSnapshot     = useProjectStore((s) => s.getSnapshot)
+  const resetStore      = useProjectStore((s) => s.resetStore)
 
   const timeUnit = simulationResults?.timeUnit ?? 'Weeks'
   const unit     = timeUnit.toLowerCase()
@@ -442,6 +443,12 @@ export default function Report({ onNavigate }) {
           )}
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => { resetStore(); onNavigate('project-setup') }}
+            className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Start Over
+          </button>
           <button
             onClick={() => onNavigate('run-simulation')}
             className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"

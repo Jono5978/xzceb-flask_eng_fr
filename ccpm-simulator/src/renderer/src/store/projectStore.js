@@ -82,6 +82,17 @@ export const useProjectStore = create((set, get) => ({
   setBehaviourParam: (key, param, value) =>
     set((s) => ({ behaviour: { ...s.behaviour, [key]: { ...s.behaviour[key], [param]: value } } })),
 
+  // ── Reset ──────────────────────────────────────────────────────────────────
+  resetStore: () =>
+    set({
+      projectName: '',
+      timeUnit: 'Weeks',
+      resources: [newResource()],
+      tasks: [newTask()],
+      behaviour: { ...DEFAULT_BEHAVIOUR },
+      simulationResults: null,
+    }),
+
   // ── Persistence ────────────────────────────────────────────────────────────
   getSnapshot: () => {
     const { projectName, timeUnit, resources, tasks, behaviour, simulationResults } = get()
