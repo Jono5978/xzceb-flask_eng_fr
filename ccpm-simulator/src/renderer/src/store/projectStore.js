@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-const newResource = () => ({ id: crypto.randomUUID(), name: '', role: '' })
+const newResource = () => ({ id: crypto.randomUUID(), name: '', fte: '' })
 
 const newTask = (position = { x: 80, y: 80 }) => ({
   id: crypto.randomUUID(),
@@ -180,7 +180,10 @@ export const useProjectStore = create((set, get) => ({
     set({
       projectName: data.projectName ?? '',
       timeUnit: data.timeUnit ?? 'Weeks',
-      resources: data.resources ?? [newResource()],
+      resources: (data.resources ?? [newResource()]).map((r) => ({
+        ...r,
+        fte: r.fte ?? '',
+      })),
       tasks: (data.tasks ?? [newTask()]).map((t) => ({
         ...t,
         finishDate: t.finishDate ?? '',

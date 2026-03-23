@@ -249,14 +249,17 @@ function ResourcesPanel() {
             <input
               value={r.name}
               onChange={(e) => updateResource(r.id, 'name', e.target.value)}
-              placeholder="Name"
+              placeholder="Skill type"
               className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
             />
             <input
-              value={r.role}
-              onChange={(e) => updateResource(r.id, 'role', e.target.value)}
-              placeholder="Role"
-              className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+              value={r.fte}
+              onChange={(e) => updateResource(r.id, 'fte', e.target.value)}
+              placeholder="FTE"
+              type="number"
+              min="0.1"
+              step="0.1"
+              className="w-16 shrink-0 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
             />
             <button
               onClick={() => removeResource(r.id)}
