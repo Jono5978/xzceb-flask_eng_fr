@@ -76,17 +76,17 @@ function DepsCell({ taskId, selectedIds, tasks, onToggle }) {
 
   const handleOpen = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const spaceBelow = window.innerHeight - rect.bottom - 8
-    const spaceAbove = rect.top - 8
-    const openUpward = spaceBelow < 120 && spaceAbove > spaceBelow
+    const vh = window.innerHeight
+    // Open upward when button is in the lower half of the viewport
+    const openUpward = rect.bottom > vh * 0.5
 
     setDropdownStyle({
       position: 'fixed',
       left: rect.left,
       width: Math.max(rect.width, 180),
       ...(openUpward
-        ? { bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(spaceAbove, 192) }
-        : { top: rect.bottom + 2, maxHeight: Math.min(spaceBelow, 192) }),
+        ? { bottom: vh - rect.top + 2, maxHeight: Math.min(rect.top - 8, 192) }
+        : { top: rect.bottom + 2, maxHeight: Math.min(vh - rect.bottom - 8, 192) }),
     })
     setOpen((o) => !o)
   }
