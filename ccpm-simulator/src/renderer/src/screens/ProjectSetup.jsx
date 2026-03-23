@@ -76,17 +76,17 @@ function DepsCell({ taskId, selectedIds, tasks, onToggle }) {
 
   const handleOpen = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const dropdownHeight = 200
-    const spaceBelow = window.innerHeight - rect.bottom
-    const openUpward = spaceBelow < dropdownHeight
+    const spaceBelow = window.innerHeight - rect.bottom - 8
+    const spaceAbove = rect.top - 8
+    const openUpward = spaceBelow < 120 && spaceAbove > spaceBelow
 
     setDropdownStyle({
       position: 'fixed',
       left: rect.left,
       width: Math.max(rect.width, 180),
       ...(openUpward
-        ? { bottom: window.innerHeight - rect.top + 4 }
-        : { top: rect.bottom + 4 }),
+        ? { bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(spaceAbove, 192) }
+        : { top: rect.bottom + 2, maxHeight: Math.min(spaceBelow, 192) }),
     })
     setOpen((o) => !o)
   }
