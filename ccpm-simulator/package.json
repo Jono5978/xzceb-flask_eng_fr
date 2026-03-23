@@ -20,6 +20,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@xyflow/react": "^12.10.1",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
     "recharts": "^3.8.0",

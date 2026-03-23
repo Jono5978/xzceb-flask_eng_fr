@@ -2,13 +2,15 @@ import { create } from 'zustand'
 
 const newResource = () => ({ id: crypto.randomUUID(), name: '', role: '' })
 
-const newTask = () => ({
+const newTask = (position = { x: 80, y: 80 }) => ({
   id: crypto.randomUUID(),
   name: '',
   resourceId: '',
   duration: '',
   dependencies: [],
-  chainType: 'Critical Chain'
+  finishDate: '',
+  chainType: 'Critical Chain', // auto-calculated before simulation
+  position,
 })
 
 const DEFAULT_BEHAVIOUR = {
@@ -16,6 +18,64 @@ const DEFAULT_BEHAVIOUR = {
   parkinsonsLaw:         { enabled: true, passThrough: 10 },
   multitasking:          { enabled: true, maxConcurrent: 3 },
   switchingCosts:        { enabled: true, productivityLoss: 20 },
+}
+
+// ── Auto-calculate critical chain (longest-duration path) ──────────────────
+
+function computeChainTypes(tasks) {
+  if (tasks.length === 0) return tasks
+
+  const dur = Object.fromEntries(tasks.map((t) => [t.id, Number(t.duration) || 0]))
+  const successors = {}
+  tasks.forEach((t) => {
+    if (!successors[t.id]) successors[t.id] = []
+    t.dependencies.forEach((depId) => {
+      if (!successors[depId]) successors[depId] = []
+      successors[depId].push(t.id)
+    })
+  })
+
+  // Longest path length ending at each node (forward pass)
+  const earliest = {}
+  const topoOrder = []
+  const inDeg = Object.fromEntries(tasks.map((t) => [t.id, t.dependencies.length]))
+  const queue = tasks.filter((t) => inDeg[t.id] === 0).map((t) => t.id)
+  queue.forEach((id) => (earliest[id] = dur[id]))
+  while (queue.length > 0) {
+    const id = queue.shift()
+    topoOrder.push(id)
+    ;(successors[id] || []).forEach((succId) => {
+      earliest[succId] = Math.max(earliest[succId] ?? 0, (earliest[id] ?? 0) + dur[succId])
+      inDeg[succId]--
+      if (inDeg[succId] === 0) queue.push(succId)
+    })
+  }
+  // Nodes not reached (cycles) default to their duration
+  tasks.forEach((t) => { if (earliest[t.id] === undefined) earliest[t.id] = dur[t.id] })
+
+  // Project end = max earliest finish
+  const maxFinish = Math.max(...Object.values(earliest))
+
+  // Backward pass: find tasks on the critical path
+  const onCritical = new Set()
+  const predecessors = Object.fromEntries(tasks.map((t) => [t.id, t.dependencies]))
+
+  const backtrack = (id) => {
+    if (onCritical.has(id)) return
+    onCritical.add(id)
+    const myEarliest = earliest[id]
+    predecessors[id].forEach((depId) => {
+      if (earliest[depId] === myEarliest - dur[id]) backtrack(depId)
+    })
+  }
+
+  // Start backtrack from tasks whose earliest finish equals maxFinish
+  tasks.forEach((t) => { if (earliest[t.id] === maxFinish) backtrack(t.id) })
+
+  return tasks.map((t) => ({
+    ...t,
+    chainType: onCritical.has(t.id) ? 'Critical Chain' : 'Feeding Chain',
+  }))
 }
 
 export const useProjectStore = create((set, get) => ({
@@ -45,32 +105,48 @@ export const useProjectStore = create((set, get) => ({
 
   updateResource: (id, field, value) =>
     set((s) => ({
-      resources: s.resources.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+      resources: s.resources.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
     })),
 
   removeResource: (id) =>
     set((s) => ({
       resources: s.resources.filter((r) => r.id !== id),
-      // Clear any tasks that referenced this resource
-      tasks: s.tasks.map((t) => (t.resourceId === id ? { ...t, resourceId: '' } : t))
+      tasks: s.tasks.map((t) => (t.resourceId === id ? { ...t, resourceId: '' } : t)),
     })),
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
   addTask: () =>
-    set((s) => ({ tasks: [...s.tasks, newTask()] })),
+    set((s) => {
+      const count = s.tasks.length
+      const position = { x: 80 + (count % 4) * 240, y: 80 + Math.floor(count / 4) * 150 }
+      return { tasks: [...s.tasks, newTask(position)] }
+    }),
 
   updateTask: (id, field, value) =>
     set((s) => ({
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, [field]: value } : t))
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, [field]: value } : t)),
+    })),
+
+  updateTaskPosition: (id, position) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, position } : t)),
+    })),
+
+  setTaskPositions: (positions) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) => (positions[t.id] ? { ...t, position: positions[t.id] } : t)),
     })),
 
   removeTask: (id) =>
     set((s) => ({
       tasks: s.tasks
         .filter((t) => t.id !== id)
-        // Remove deleted task from other tasks' dependencies
-        .map((t) => ({ ...t, dependencies: t.dependencies.filter((d) => d !== id) }))
+        .map((t) => ({ ...t, dependencies: t.dependencies.filter((d) => d !== id) })),
     })),
+
+  // Call before running simulation to auto-assign chainType
+  computeChainTypes: () =>
+    set((s) => ({ tasks: computeChainTypes(s.tasks) })),
 
   // ── Simulation results ─────────────────────────────────────────────────────
   setSimulationResults: (results) => set({ simulationResults: results }),
@@ -105,9 +181,14 @@ export const useProjectStore = create((set, get) => ({
       projectName: data.projectName ?? '',
       timeUnit: data.timeUnit ?? 'Weeks',
       resources: data.resources ?? [newResource()],
-      tasks: data.tasks ?? [newTask()],
+      tasks: (data.tasks ?? [newTask()]).map((t) => ({
+        ...t,
+        finishDate: t.finishDate ?? '',
+        position: t.position ?? { x: 80, y: 80 },
+        chainType: t.chainType ?? 'Critical Chain',
+      })),
       behaviour: data.behaviour ?? { ...DEFAULT_BEHAVIOUR },
       simulationResults: data.simulationResults ?? null,
     })
-  }
+  },
 }))

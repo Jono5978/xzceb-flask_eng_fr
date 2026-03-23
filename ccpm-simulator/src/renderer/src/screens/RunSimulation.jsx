@@ -103,12 +103,13 @@ function ProgressBar({ current, total }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function RunSimulation({ onNavigate }) {
-  const projectName  = useProjectStore((s) => s.projectName)
-  const timeUnit     = useProjectStore((s) => s.timeUnit)
-  const tasks        = useProjectStore((s) => s.tasks)
-  const resources    = useProjectStore((s) => s.resources)
-  const behaviour    = useProjectStore((s) => s.behaviour)
-  const setResults   = useProjectStore((s) => s.setSimulationResults)
+  const projectName      = useProjectStore((s) => s.projectName)
+  const timeUnit         = useProjectStore((s) => s.timeUnit)
+  const tasks            = useProjectStore((s) => s.tasks)
+  const resources        = useProjectStore((s) => s.resources)
+  const behaviour        = useProjectStore((s) => s.behaviour)
+  const setResults       = useProjectStore((s) => s.setSimulationResults)
+  const computeChainTypes = useProjectStore((s) => s.computeChainTypes)
 
   const [status, setStatus]   = useState('idle')   // 'idle' | 'running' | 'done' | 'error'
   const [progress, setProgress] = useState(0)
@@ -187,6 +188,7 @@ export default function RunSimulation({ onNavigate }) {
 
   function handleRun() {
     if (status === 'running') return
+    computeChainTypes()
     // Reset accumulators
     asIsRaw.current  = []
     ccpmRaw.current  = []
