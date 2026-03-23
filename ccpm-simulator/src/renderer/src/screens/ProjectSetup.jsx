@@ -356,7 +356,7 @@ export default function ProjectSetup({ onNavigate }) {
       )}
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
+      <div className="flex-1 overflow-auto px-8 py-6 space-y-8 pb-40">
         {/* Project meta */}
         <div className="flex gap-6 items-end">
           <div className="flex-1 max-w-sm">
