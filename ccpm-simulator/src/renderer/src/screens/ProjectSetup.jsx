@@ -362,7 +362,7 @@ export default function ProjectSetup({ onNavigate }) {
   )
 
   const onSelectionChange = useCallback(({ nodes: sel }) => {
-    setSelectedId(sel.length === 1 ? sel[0].id : null)
+    if (sel.length === 1) setSelectedId(sel[0].id)
   }, [])
 
   const onPaneClick = useCallback(() => {
