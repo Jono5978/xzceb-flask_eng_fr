@@ -67,15 +67,35 @@ function AddBtn({ onClick, label }) {
 
 function DepsCell({ taskId, selectedIds, tasks, onToggle }) {
   const [open, setOpen] = useState(false)
+  const [dropdownStyle, setDropdownStyle] = useState({})
+  const btnRef = useState(null)
   const options = tasks.filter((t) => t.id !== taskId)
   const selectedNames = options
     .filter((t) => selectedIds.includes(t.id))
     .map((t) => t.name || '(unnamed)')
 
+  const handleOpen = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const dropdownHeight = 200
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUpward = spaceBelow < dropdownHeight
+
+    setDropdownStyle({
+      position: 'fixed',
+      left: rect.left,
+      width: Math.max(rect.width, 180),
+      ...(openUpward
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+    })
+    setOpen((o) => !o)
+  }
+
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        ref={btnRef[0]}
+        onClick={handleOpen}
         className="w-full text-left px-2 py-1.5 text-sm border border-gray-200 rounded bg-white hover:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-400 truncate"
       >
         {selectedNames.length ? selectedNames.join(', ') : (
@@ -85,9 +105,11 @@ function DepsCell({ taskId, selectedIds, tasks, onToggle }) {
 
       {open && (
         <>
-          {/* backdrop */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 mt-1 left-0 min-w-[180px] bg-white border border-gray-200 rounded shadow-lg py-1 max-h-48 overflow-auto">
+          <div
+            style={dropdownStyle}
+            className="z-20 bg-white border border-gray-200 rounded shadow-lg py-1 max-h-48 overflow-auto"
+          >
             {options.length === 0 ? (
               <p className="px-3 py-2 text-xs text-gray-400">No other tasks yet</p>
             ) : (
@@ -356,7 +378,7 @@ export default function ProjectSetup({ onNavigate }) {
       )}
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-auto px-8 py-6 space-y-8" style={{ paddingBottom: `${tasks.length * 40}px` }}>
+      <div className="flex-1 overflow-auto px-8 py-6 space-y-8">
         {/* Project meta */}
         <div className="flex gap-6 items-end">
           <div className="flex-1 max-w-sm">
