@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -33,6 +33,71 @@ function tasksToEdges(tasks) {
     })
   })
   return edges
+}
+
+// ── Backward-pass finish date calculator ───────────────────────────────────
+// Works backwards from the project due date through the dependency network.
+// Terminal tasks (no successors) finish on the project due date.
+// Each predecessor finishes when the earliest of its successors starts.
+
+function computeFinishDates(tasks, projectDueDate, timeUnit) {
+  if (!projectDueDate || tasks.length === 0) return {}
+
+  const daysPerUnit = timeUnit === 'Months' ? 30 : 7
+  const msPerDay = 86400000
+  const projectMs = new Date(projectDueDate).getTime()
+
+  // Build successor map
+  const successors = {}
+  tasks.forEach((t) => {
+    successors[t.id] = successors[t.id] || []
+    t.dependencies.forEach((depId) => {
+      successors[depId] = successors[depId] || []
+      successors[depId].push(t.id)
+    })
+  })
+
+  // Topological order (Kahn's)
+  const tempInDeg = Object.fromEntries(tasks.map((t) => [t.id, t.dependencies.length]))
+  const tempQueue = tasks.filter((t) => tempInDeg[t.id] === 0).map((t) => t.id)
+  const topoOrder = []
+  while (tempQueue.length > 0) {
+    const id = tempQueue.shift()
+    topoOrder.push(id)
+    ;(successors[id] || []).forEach((succId) => {
+      tempInDeg[succId]--
+      if (tempInDeg[succId] === 0) tempQueue.push(succId)
+    })
+  }
+  // Catch any tasks not reached (shouldn't happen after cycle guard, but be safe)
+  tasks.forEach((t) => { if (!topoOrder.includes(t.id)) topoOrder.push(t.id) })
+
+  // Backward pass: process in reverse topological order
+  const finishMs = {}
+  ;[...topoOrder].reverse().forEach((id) => {
+    const succIds = successors[id] || []
+    if (succIds.length === 0) {
+      finishMs[id] = projectMs
+    } else {
+      let minSuccStart = Infinity
+      succIds.forEach((succId) => {
+        const succTask = tasks.find((t) => t.id === succId)
+        if (!succTask) return
+        const succDur = Number(succTask.duration) || 0
+        const succFinish = finishMs[succId] ?? projectMs
+        minSuccStart = Math.min(minSuccStart, succFinish - succDur * daysPerUnit * msPerDay)
+      })
+      finishMs[id] = minSuccStart === Infinity ? projectMs : minSuccStart
+    }
+  })
+
+  const result = {}
+  tasks.forEach((t) => {
+    if (finishMs[t.id] !== undefined) {
+      result[t.id] = new Date(finishMs[t.id]).toISOString().split('T')[0]
+    }
+  })
+  return result
 }
 
 function wouldCreateCycle(tasks, sourceId, targetId) {
@@ -192,12 +257,14 @@ function TaskDetailPanel({ task, resources, timeUnit, onUpdate, onDelete }) {
       </div>
 
       <div>
-        <FieldLabel>Finish Date</FieldLabel>
-        <PanelInput
-          value={task.finishDate ?? ''}
-          onChange={(v) => onUpdate('finishDate', v)}
-          type="date"
-        />
+        <FieldLabel>Finish Date (auto-calculated)</FieldLabel>
+        <p className="w-full px-2.5 py-1.5 text-sm border border-gray-100 rounded bg-gray-50 text-gray-600">
+          {task.finishDate
+            ? new Date(task.finishDate + 'T00:00:00').toLocaleDateString(undefined, {
+                day: 'numeric', month: 'short', year: 'numeric',
+              })
+            : <span className="text-gray-300 italic">set project due date first</span>}
+        </p>
       </div>
     </div>
   )
@@ -277,13 +344,52 @@ function ResourcesPanel() {
   )
 }
 
+// ── Project due date gate modal ────────────────────────────────────────────
+
+function DueDateModal({ onConfirm }) {
+  const [value, setValue] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-80 flex flex-col gap-5">
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 mb-1">Set Project Due Date</h2>
+          <p className="text-sm text-gray-500">
+            Enter the target completion date. Task finish dates will be calculated backwards through the network from this date.
+          </p>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+            Due Date
+          </label>
+          <input
+            type="date"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            autoFocus
+          />
+        </div>
+        <button
+          disabled={!value}
+          onClick={() => onConfirm(value)}
+          className="w-full py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Start Building
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function ProjectSetup({ onNavigate }) {
   const projectName = useProjectStore((s) => s.projectName)
   const timeUnit = useProjectStore((s) => s.timeUnit)
+  const projectDueDate = useProjectStore((s) => s.projectDueDate)
   const setProjectName = useProjectStore((s) => s.setProjectName)
   const setTimeUnit = useProjectStore((s) => s.setTimeUnit)
+  const setProjectDueDate = useProjectStore((s) => s.setProjectDueDate)
   const tasks = useProjectStore((s) => s.tasks)
   const resources = useProjectStore((s) => s.resources)
   const addTask = useProjectStore((s) => s.addTask)
@@ -291,9 +397,25 @@ export default function ProjectSetup({ onNavigate }) {
   const removeTask = useProjectStore((s) => s.removeTask)
   const updateTaskPosition = useProjectStore((s) => s.updateTaskPosition)
   const setTaskPositions = useProjectStore((s) => s.setTaskPositions)
+  const setTaskFinishDates = useProjectStore((s) => s.setTaskFinishDates)
 
   const [selectedId, setSelectedId] = useState(null)
   const [error, setError] = useState('')
+
+  // ── Live finish-date recalculation ──────────────────────────────────────
+  // Track only structure-relevant fields so updating finishDates doesn't re-trigger.
+  const lastComputeKey = useRef(null)
+  useEffect(() => {
+    const key = JSON.stringify({
+      structure: tasks.map((t) => ({ id: t.id, duration: t.duration, dependencies: t.dependencies })),
+      projectDueDate,
+      timeUnit,
+    })
+    if (key === lastComputeKey.current) return
+    lastComputeKey.current = key
+    const dates = computeFinishDates(tasks, projectDueDate, timeUnit)
+    if (Object.keys(dates).length > 0) setTaskFinishDates(dates)
+  }, [tasks, projectDueDate, timeUnit, setTaskFinishDates])
 
   const selectedTask = useMemo(
     () => tasks.find((t) => t.id === selectedId) ?? null,
@@ -397,6 +519,9 @@ export default function ProjectSetup({ onNavigate }) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* ── Due date gate modal ── */}
+      {!projectDueDate && <DueDateModal onConfirm={(d) => setProjectDueDate(d)} />}
+
       {/* ── Top bar ── */}
       <div className="flex items-center gap-4 px-6 py-3 border-b border-gray-100 bg-white shrink-0">
         <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -421,6 +546,22 @@ export default function ProjectSetup({ onNavigate }) {
               </button>
             ))}
           </div>
+          {projectDueDate && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs text-gray-400">Due:</span>
+              <span className="text-xs font-medium text-gray-700">
+                {new Date(projectDueDate + 'T00:00:00').toLocaleDateString(undefined, {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                })}
+              </span>
+              <button
+                onClick={() => setProjectDueDate('')}
+                className="text-xs text-blue-500 hover:text-blue-700 ml-1"
+              >
+                change
+              </button>
+            </div>
+          )}
           {error && (
             <p className="text-sm text-red-500 flex items-center gap-1 truncate">
               <span>⚠</span> {error}

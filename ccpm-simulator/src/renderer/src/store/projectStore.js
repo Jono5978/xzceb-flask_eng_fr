@@ -82,6 +82,7 @@ export const useProjectStore = create((set, get) => ({
   // Project metadata
   projectName: '',
   timeUnit: 'Weeks',
+  projectDueDate: '',
 
   // Resources
   resources: [newResource()],
@@ -98,6 +99,7 @@ export const useProjectStore = create((set, get) => ({
   // ── Project metadata ──────────────────────────────────────────────────────
   setProjectName: (name) => set({ projectName: name }),
   setTimeUnit: (unit) => set({ timeUnit: unit }),
+  setProjectDueDate: (date) => set({ projectDueDate: date }),
 
   // ── Resources ─────────────────────────────────────────────────────────────
   addResource: () =>
@@ -144,6 +146,13 @@ export const useProjectStore = create((set, get) => ({
         .map((t) => ({ ...t, dependencies: t.dependencies.filter((d) => d !== id) })),
     })),
 
+  setTaskFinishDates: (dateMap) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        dateMap[t.id] !== undefined ? { ...t, finishDate: dateMap[t.id] } : t
+      ),
+    })),
+
   // Call before running simulation to auto-assign chainType
   computeChainTypes: () =>
     set((s) => ({ tasks: computeChainTypes(s.tasks) })),
@@ -163,6 +172,7 @@ export const useProjectStore = create((set, get) => ({
     set({
       projectName: '',
       timeUnit: 'Weeks',
+      projectDueDate: '',
       resources: [newResource()],
       tasks: [newTask()],
       behaviour: { ...DEFAULT_BEHAVIOUR },
@@ -171,8 +181,8 @@ export const useProjectStore = create((set, get) => ({
 
   // ── Persistence ────────────────────────────────────────────────────────────
   getSnapshot: () => {
-    const { projectName, timeUnit, resources, tasks, behaviour, simulationResults } = get()
-    return { projectName, timeUnit, resources, tasks, behaviour, simulationResults }
+    const { projectName, timeUnit, projectDueDate, resources, tasks, behaviour, simulationResults } = get()
+    return { projectName, timeUnit, projectDueDate, resources, tasks, behaviour, simulationResults }
   },
 
   loadSnapshot: (data) => {
@@ -180,6 +190,7 @@ export const useProjectStore = create((set, get) => ({
     set({
       projectName: data.projectName ?? '',
       timeUnit: data.timeUnit ?? 'Weeks',
+      projectDueDate: data.projectDueDate ?? '',
       resources: (data.resources ?? [newResource()]).map((r) => ({
         ...r,
         fte: r.fte ?? '',
