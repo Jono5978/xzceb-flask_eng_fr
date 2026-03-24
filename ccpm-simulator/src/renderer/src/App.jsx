@@ -1,39 +1,76 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useProjectStore } from './store/projectStore'
+import { saveProject, loadProject } from './utils/projectStorage'
+import HomeScreen from './screens/HomeScreen'
 import ProjectSetup from './screens/ProjectSetup'
 import BehaviourConfig from './screens/BehaviourConfig'
 import RunSimulation from './screens/RunSimulation'
 import Report from './screens/Report'
 
 const NAV_ITEMS = [
-  { id: 'project-setup', label: 'Project Setup' },
+  { id: 'project-setup',    label: 'Project Setup' },
   { id: 'behaviour-config', label: 'Behaviour Config' },
-  { id: 'run-simulation', label: 'Run Simulation' },
-  { id: 'report', label: 'Report' }
+  { id: 'run-simulation',   label: 'Run Simulation' },
+  { id: 'report',           label: 'Report' },
 ]
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('project-setup')
-  const getSnapshot = useProjectStore((s) => s.getSnapshot)
+  const [currentScreen, setCurrentScreen] = useState('home')
+
+  const getSnapshot  = useProjectStore((s) => s.getSnapshot)
   const loadSnapshot = useProjectStore((s) => s.loadSnapshot)
+  const initProject  = useProjectStore((s) => s.initProject)
+  const projectId    = useProjectStore((s) => s.projectId)
 
-  const handleSave = async () => {
-    const result = await window.api.saveProject(getSnapshot())
-    if (result?.success) console.log('Project saved to', result.filePath)
+  // ── Navigation ─────────────────────────────────────────────────────────
+  // Auto-save to localStorage whenever navigating back to the home screen.
+
+  const handleNavigate = useCallback((screen) => {
+    if (screen === 'home') {
+      const snap = getSnapshot()
+      if (snap.projectId) saveProject(snap.projectId, snap)
+    }
+    setCurrentScreen(screen)
+  }, [getSnapshot])
+
+  // ── Home screen callbacks ───────────────────────────────────────────────
+
+  const handleNewProject = useCallback((name, dueDate) => {
+    const id = crypto.randomUUID()
+    initProject(id, name, dueDate)
+    // Save immediately so the project appears if the user returns home early
+    saveProject(id, { projectId: id, projectName: name, projectDueDate: dueDate,
+      timeUnit: 'Weeks', resources: [], tasks: [], behaviour: {}, simulationResults: null })
+    setCurrentScreen('project-setup')
+  }, [initProject])
+
+  const handleOpenProject = useCallback((id) => {
+    const snap = loadProject(id)
+    if (snap) {
+      loadSnapshot(snap)
+      setCurrentScreen('project-setup')
+    }
+  }, [loadSnapshot])
+
+  // ── Render ─────────────────────────────────────────────────────────────
+
+  if (currentScreen === 'home') {
+    return (
+      <HomeScreen
+        onNew={handleNewProject}
+        onOpen={handleOpenProject}
+      />
+    )
   }
 
-  const handleLoad = async () => {
-    const data = await window.api.loadProject()
-    if (data) loadSnapshot(data)
-  }
+  const screenProps = { onNavigate: handleNavigate }
 
   const renderScreen = () => {
-    const props = { onNavigate: setCurrentScreen }
     switch (currentScreen) {
-      case 'project-setup':    return <ProjectSetup {...props} />
-      case 'behaviour-config': return <BehaviourConfig {...props} />
-      case 'run-simulation':   return <RunSimulation {...props} />
-      case 'report':           return <Report {...props} />
+      case 'project-setup':    return <ProjectSetup    {...screenProps} />
+      case 'behaviour-config': return <BehaviourConfig {...screenProps} />
+      case 'run-simulation':   return <RunSimulation   {...screenProps} />
+      case 'report':           return <Report          {...screenProps} />
       default:                 return null
     }
   }
@@ -51,19 +88,13 @@ export default function App() {
           <p className="text-xs text-slate-400 mt-0.5">Theory of Constraints</p>
         </div>
 
-        {/* Save / Load */}
-        <div className="px-4 py-3 border-b border-slate-700 flex gap-2">
+        {/* Home button */}
+        <div className="px-4 py-3 border-b border-slate-700">
           <button
-            onClick={handleSave}
-            className="flex-1 text-xs py-1.5 px-3 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
+            onClick={() => handleNavigate('home')}
+            className="w-full text-left flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
           >
-            Save Project
-          </button>
-          <button
-            onClick={handleLoad}
-            className="flex-1 text-xs py-1.5 px-3 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
-          >
-            Load Project
+            ← Home
           </button>
         </div>
 
@@ -73,7 +104,7 @@ export default function App() {
             {NAV_ITEMS.map((item) => (
               <li key={item.id}>
                 <button
-                  onClick={() => setCurrentScreen(item.id)}
+                  onClick={() => handleNavigate(item.id)}
                   className={`w-full text-left px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
                     currentScreen === item.id
                       ? 'bg-blue-600 text-white'

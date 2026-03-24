@@ -80,6 +80,7 @@ function computeChainTypes(tasks) {
 
 export const useProjectStore = create((set, get) => ({
   // Project metadata
+  projectId: null,
   projectName: '',
   timeUnit: 'Weeks',
   projectDueDate: '',
@@ -100,6 +101,20 @@ export const useProjectStore = create((set, get) => ({
   setProjectName: (name) => set({ projectName: name }),
   setTimeUnit: (unit) => set({ timeUnit: unit }),
   setProjectDueDate: (date) => set({ projectDueDate: date }),
+  setProjectId: (id) => set({ projectId: id }),
+
+  // Initialise a brand-new project (resets all state, sets id/name/dueDate)
+  initProject: (id, name, dueDate) =>
+    set({
+      projectId: id,
+      projectName: name,
+      timeUnit: 'Weeks',
+      projectDueDate: dueDate,
+      resources: [newResource()],
+      tasks: [newTask()],
+      behaviour: { ...DEFAULT_BEHAVIOUR },
+      simulationResults: null,
+    }),
 
   // ── Resources ─────────────────────────────────────────────────────────────
   addResource: () =>
@@ -170,6 +185,7 @@ export const useProjectStore = create((set, get) => ({
   // ── Reset ──────────────────────────────────────────────────────────────────
   resetStore: () =>
     set({
+      projectId: null,
       projectName: '',
       timeUnit: 'Weeks',
       projectDueDate: '',
@@ -181,13 +197,14 @@ export const useProjectStore = create((set, get) => ({
 
   // ── Persistence ────────────────────────────────────────────────────────────
   getSnapshot: () => {
-    const { projectName, timeUnit, projectDueDate, resources, tasks, behaviour, simulationResults } = get()
-    return { projectName, timeUnit, projectDueDate, resources, tasks, behaviour, simulationResults }
+    const { projectId, projectName, timeUnit, projectDueDate, resources, tasks, behaviour, simulationResults } = get()
+    return { projectId, projectName, timeUnit, projectDueDate, resources, tasks, behaviour, simulationResults }
   },
 
   loadSnapshot: (data) => {
     if (!data) return
     set({
+      projectId: data.projectId ?? null,
       projectName: data.projectName ?? '',
       timeUnit: data.timeUnit ?? 'Weeks',
       projectDueDate: data.projectDueDate ?? '',

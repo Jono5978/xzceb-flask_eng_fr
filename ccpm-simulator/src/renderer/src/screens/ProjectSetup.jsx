@@ -344,43 +344,6 @@ function ResourcesPanel() {
   )
 }
 
-// ── Project due date gate modal ────────────────────────────────────────────
-
-function DueDateModal({ onConfirm }) {
-  const [value, setValue] = useState('')
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-80 flex flex-col gap-5">
-        <div>
-          <h2 className="text-lg font-bold text-gray-800 mb-1">Set Project Due Date</h2>
-          <p className="text-sm text-gray-500">
-            Enter the target completion date. Task finish dates will be calculated backwards through the network from this date.
-          </p>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-            Due Date
-          </label>
-          <input
-            type="date"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-            autoFocus
-          />
-        </div>
-        <button
-          disabled={!value}
-          onClick={() => onConfirm(value)}
-          className="w-full py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Start Building
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ── Main screen ────────────────────────────────────────────────────────────
 
 export default function ProjectSetup({ onNavigate }) {
@@ -401,6 +364,7 @@ export default function ProjectSetup({ onNavigate }) {
 
   const [selectedId, setSelectedId] = useState(null)
   const [error, setError] = useState('')
+  const [editingDueDate, setEditingDueDate] = useState(false)
 
   // ── Live finish-date recalculation ──────────────────────────────────────
   // Track only structure-relevant fields so updating finishDates doesn't re-trigger.
@@ -519,9 +483,6 @@ export default function ProjectSetup({ onNavigate }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Due date gate modal ── */}
-      {!projectDueDate && <DueDateModal onConfirm={(d) => setProjectDueDate(d)} />}
-
       {/* ── Top bar ── */}
       <div className="flex items-center gap-4 px-6 py-3 border-b border-gray-100 bg-white shrink-0">
         <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -546,22 +507,39 @@ export default function ProjectSetup({ onNavigate }) {
               </button>
             ))}
           </div>
-          {projectDueDate && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-xs text-gray-400">Due:</span>
-              <span className="text-xs font-medium text-gray-700">
-                {new Date(projectDueDate + 'T00:00:00').toLocaleDateString(undefined, {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                })}
-              </span>
-              <button
-                onClick={() => setProjectDueDate('')}
-                className="text-xs text-blue-500 hover:text-blue-700 ml-1"
-              >
-                change
-              </button>
-            </div>
-          )}
+
+          {/* Due date display / inline editor */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-gray-400">Due:</span>
+            {editingDueDate ? (
+              <input
+                type="date"
+                autoFocus
+                defaultValue={projectDueDate}
+                onChange={(e) => { if (e.target.value) setProjectDueDate(e.target.value) }}
+                onBlur={() => setEditingDueDate(false)}
+                onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') setEditingDueDate(false) }}
+                className="px-2 py-0.5 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            ) : (
+              <>
+                <span className="text-xs font-medium text-gray-700">
+                  {projectDueDate
+                    ? new Date(projectDueDate + 'T00:00:00').toLocaleDateString(undefined, {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      })
+                    : <span className="text-gray-300">not set</span>}
+                </span>
+                <button
+                  onClick={() => setEditingDueDate(true)}
+                  className="text-xs text-blue-500 hover:text-blue-700 ml-0.5"
+                >
+                  change
+                </button>
+              </>
+            )}
+          </div>
+
           {error && (
             <p className="text-sm text-red-500 flex items-center gap-1 truncate">
               <span>⚠</span> {error}
