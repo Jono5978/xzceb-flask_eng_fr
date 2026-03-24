@@ -215,6 +215,9 @@ function NoTaskSelectedPanel() {
       <p className="text-xs text-gray-300 text-center leading-relaxed">
         Drag from the right edge of a task to create a dependency arrow
       </p>
+      <p className="text-xs text-gray-300 text-center leading-relaxed">
+        Click an arrow then press Delete or Backspace to remove it
+      </p>
     </div>
   )
 }
@@ -451,6 +454,7 @@ export default function ProjectSetup({ onNavigate }) {
             onPaneClick={onPaneClick}
             fitView
             fitViewOptions={{ padding: 0.3 }}
+            deleteKeyCode={['Backspace', 'Delete']}
             connectionLineType="smoothstep"
             defaultEdgeOptions={{
               type: 'smoothstep',
@@ -490,6 +494,9 @@ export default function ProjectSetup({ onNavigate }) {
                 </p>
                 <p className="text-gray-300 text-xs">
                   Drag from the right edge of a task node to link it to another
+                </p>
+                <p className="text-gray-300 text-xs">
+                  Click an arrow then press Delete or Backspace to remove it
                 </p>
               </div>
             </div>
