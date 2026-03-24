@@ -115,11 +115,12 @@ export default function RunSimulation({ onNavigate }) {
   const [progress, setProgress] = useState(0)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Accumulator refs — hold raw finish-time arrays across batches
-  const asIsRaw   = useRef([])
-  const ccpmRaw   = useRef([])
-  const lastAsIs  = useRef(null)
-  const lastCcpm  = useRef(null)
+  // Accumulator refs — hold raw arrays across batches
+  const asIsRaw         = useRef([])
+  const ccpmRaw         = useRef([])
+  const ccpmFinalPctsRaw = useRef([])
+  const lastAsIs        = useRef(null)
+  const lastCcpm        = useRef(null)
 
   // Derived summary counts
   const criticalCount = tasks.filter((t) => t.chainType === 'Critical Chain').length
@@ -137,8 +138,9 @@ export default function RunSimulation({ onNavigate }) {
       return
     }
 
-    asIsRaw.current = [...asIsRaw.current, ...batchResult.asIs.finishTimes]
-    ccpmRaw.current = [...ccpmRaw.current, ...batchResult.ccpm.finishTimes]
+    asIsRaw.current          = [...asIsRaw.current,          ...batchResult.asIs.finishTimes]
+    ccpmRaw.current          = [...ccpmRaw.current,          ...batchResult.ccpm.finishTimes]
+    ccpmFinalPctsRaw.current = [...ccpmFinalPctsRaw.current, ...batchResult.ccpm.bufferFinalPcts]
     lastAsIs.current = batchResult.asIs
     lastCcpm.current = batchResult.ccpm
 
@@ -174,7 +176,7 @@ export default function RunSimulation({ onNavigate }) {
         p95: percentile(allCcpm, 95),
         criticalChainDuration: ccpm.criticalChainDuration,
         projectBufferSize:     ccpm.projectBufferSize,
-        bufferConsumption:     ccpm.bufferConsumption,
+        bufferFinalPcts:       ccpmFinalPctsRaw.current,
       },
       timeUnit,
     }
@@ -190,8 +192,9 @@ export default function RunSimulation({ onNavigate }) {
     if (status === 'running') return
     computeChainTypes()
     // Reset accumulators
-    asIsRaw.current  = []
-    ccpmRaw.current  = []
+    asIsRaw.current          = []
+    ccpmRaw.current          = []
+    ccpmFinalPctsRaw.current = []
     lastAsIs.current = null
     lastCcpm.current = null
     setProgress(0)

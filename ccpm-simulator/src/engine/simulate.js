@@ -505,7 +505,7 @@ export function runSimulation({ tasks, resources, behaviourConfig, iterations = 
 
   // ── CCPM Monte Carlo ──
   const ccpmFinishTimes = []
-  const ccpmBufferSeries = []
+  const bufferFinalPcts = []   // final buffer consumption % per iteration
   let lastCriticalChainDuration = 0
   let lastProjectBufferSize = 0
 
@@ -513,13 +513,10 @@ export function runSimulation({ tasks, resources, behaviourConfig, iterations = 
     const { finishTime, criticalChainDuration, projectBufferSize, bufferTrace } =
       runCcpmIteration(tasks, taskMap, order, cfg)
     ccpmFinishTimes.push(finishTime)
-    ccpmBufferSeries.push(bufferTrace.map((p) => ({ time: p.time, value: p.pct })))
+    bufferFinalPcts.push(bufferTrace[bufferTrace.length - 1]?.pct ?? 0)
     lastCriticalChainDuration = criticalChainDuration
     lastProjectBufferSize = projectBufferSize
   }
-
-  const bufferConsumption = averageTimeSeries(ccpmBufferSeries, 'value')
-    .map(({ time, value }) => ({ time, pct: value }))
 
   return {
     asIs: {
@@ -537,7 +534,7 @@ export function runSimulation({ tasks, resources, behaviourConfig, iterations = 
       p95: percentile(ccpmFinishTimes, 95),
       criticalChainDuration: lastCriticalChainDuration,
       projectBufferSize: lastProjectBufferSize,
-      bufferConsumption,
+      bufferFinalPcts,
     },
   }
 }

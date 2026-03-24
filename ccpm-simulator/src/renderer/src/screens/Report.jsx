@@ -1,9 +1,10 @@
 import {
   AreaChart, Area,
+  BarChart, Bar, Cell,
   LineChart, Line,
   XAxis, YAxis, CartesianGrid,
   Tooltip, Legend,
-  ReferenceArea, ReferenceLine,
+  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
 import { useProjectStore } from '../store/projectStore'
@@ -172,59 +173,76 @@ function DistributionChart({ asIs, ccpm, timeUnit }) {
 
 // ─── Section 2 components ─────────────────────────────────────────────────────
 
-function BufferChart({ ccpm }) {
-  const data = (ccpm.bufferConsumption ?? []).map((p) => ({
-    time: parseFloat(p.time.toFixed(2)),
-    pct: parseFloat(p.pct.toFixed(1)),
+// Build a 10-bin histogram (0–10%, 10–20%, …, 90–100%) from final buffer pct values.
+function buildBufferHistogram(finalPcts) {
+  const bins = Array.from({ length: 10 }, (_, i) => ({
+    label: `${i * 10}–${(i + 1) * 10}%`,
+    lo: i * 10,
+    count: 0,
   }))
+  finalPcts.forEach((pct) => {
+    const idx = Math.min(Math.floor(pct / 10), 9)
+    bins[idx].count++
+  })
+  return bins
+}
+
+function binColor(lo) {
+  if (lo < 33) return '#34d399'  // green — on track
+  if (lo < 66) return '#f59e0b'  // amber — at risk
+  return '#f87171'               // red   — critical
+}
+
+function BufferDistributionChart({ ccpm }) {
+  const finalPcts = ccpm.bufferFinalPcts ?? []
+  const total = finalPcts.length
+  const data = buildBufferHistogram(finalPcts)
+
+  const onTrackPct  = total > 0 ? Math.round(finalPcts.filter((p) => p <  33).length / total * 100) : 0
+  const atRiskPct   = total > 0 ? Math.round(finalPcts.filter((p) => p >= 33 && p < 66).length / total * 100) : 0
+  const criticalPct = total > 0 ? Math.round(finalPcts.filter((p) => p >= 66).length / total * 100) : 0
 
   return (
-    <ChartCard title="CCPM project buffer consumption over time">
+    <ChartCard title="CCPM project buffer consumption — distribution across simulations">
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-          {/* Background fever bands */}
-          <ReferenceArea y1={0}   y2={33}  fill="#dcfce7" fillOpacity={0.6} ifOverflow="hidden" />
-          <ReferenceArea y1={33}  y2={66}  fill="#fef9c3" fillOpacity={0.7} ifOverflow="hidden" />
-          <ReferenceArea y1={66}  y2={100} fill="#fee2e2" fillOpacity={0.7} ifOverflow="hidden" />
-
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        <BarChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
           <XAxis
-            dataKey="time"
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            dataKey="label"
+            tick={{ fontSize: 10, fill: '#94a3b8' }}
             axisLine={false}
             tickLine={false}
-            label={{ value: 'time', position: 'insideBottomRight', fontSize: 10, fill: '#cbd5e1', dx: -4 }}
           />
           <YAxis
-            domain={[0, 100]}
-            tickFormatter={(v) => `${v}%`}
             tick={{ fontSize: 11, fill: '#94a3b8' }}
             axisLine={false}
             tickLine={false}
+            label={{ value: 'simulations', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#cbd5e1', dy: 40 }}
           />
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(v) => [`${v}%`, 'Buffer consumed']}
+            formatter={(v) => [v, 'simulations']}
+            labelFormatter={(l) => `Buffer consumed: ${l}`}
           />
-          {/* Band labels as reference lines */}
-          <ReferenceLine y={33} stroke="#86efac" strokeDasharray="4 4" strokeWidth={1} />
-          <ReferenceLine y={66} stroke="#fcd34d" strokeDasharray="4 4" strokeWidth={1} />
-          <Line
-            type="monotone"
-            dataKey="pct"
-            name="Buffer consumed"
-            stroke="#f59e0b"
-            strokeWidth={2.5}
-            dot={false}
-            activeDot={{ r: 4 }}
-          />
-        </LineChart>
+          <ReferenceLine x="30–40%" stroke="#86efac" strokeDasharray="4 4" strokeWidth={1} />
+          <ReferenceLine x="60–70%" stroke="#fcd34d" strokeDasharray="4 4" strokeWidth={1} />
+          <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+            {data.map((entry) => (
+              <Cell key={entry.label} fill={binColor(entry.lo)} />
+            ))}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
-      <div className="flex gap-4 mt-2">
-        {[['#86efac','On track (0–33%)'], ['#fcd34d','At risk (33–66%)'], ['#f87171','Critical (66–100%)']].map(([c,l]) => (
-          <div key={l} className="flex items-center gap-1.5 text-xs text-gray-500">
-            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: c }} />
-            {l}
+      <div className="flex gap-5 mt-3 flex-wrap">
+        {[
+          { color: '#34d399', label: 'On track (<33%)',   pct: onTrackPct  },
+          { color: '#f59e0b', label: 'At risk (33–66%)',  pct: atRiskPct   },
+          { color: '#f87171', label: 'Critical (>66%)',   pct: criticalPct },
+        ].map(({ color, label, pct }) => (
+          <div key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+            <span>{label}</span>
+            <span className="font-semibold text-gray-700">{pct}% of runs</span>
           </div>
         ))}
       </div>
@@ -515,7 +533,7 @@ export default function Report({ onNavigate }) {
           <SectionTitle>Project Manager Detail</SectionTitle>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <BufferChart ccpm={ccpm} />
+            <BufferDistributionChart ccpm={ccpm} />
             <WIPChart asIs={asIs} />
           </div>
 

@@ -73,7 +73,7 @@ row('P80 finish time',        ccpm.p80.toFixed(2))
 row('P95 finish time',        ccpm.p95.toFixed(2))
 row('Critical chain duration', ccpm.criticalChainDuration.toFixed(2))
 row('Project buffer size',     ccpm.projectBufferSize.toFixed(2))
-row('Buffer consumption points', ccpm.bufferConsumption.length)
+row('Buffer final pcts count',   ccpm.bufferFinalPcts.length)
 row('Finish times count',      ccpm.finishTimes.length)
 
 // ─── Assertions ───────────────────────────────────────────────────────────────
@@ -107,7 +107,8 @@ assert('CCPM p50 < p80 < p95 (ordered)',     ccpm.p50 <= ccpm.p80 && ccpm.p80 <=
 assert('No NaN in AS-IS finish times',        asIs.finishTimes.every((v) => !isNaN(v)))
 assert('No NaN in CCPM finish times',         ccpm.finishTimes.every((v) => !isNaN(v)))
 assert('AS-IS avg slippage > 0%',             asIs.avgSlippage > 0)
-assert('Buffer consumption series non-empty', ccpm.bufferConsumption.length > 0)
+assert('Buffer final pcts non-empty',         ccpm.bufferFinalPcts.length > 0)
+assert('Buffer final pcts all in 0–100',     ccpm.bufferFinalPcts.every((p) => p >= 0 && p <= 100))
 assert('WIP series non-empty',                asIs.wipOverTime.length > 0)
 assert('AS-IS p50 is finite',                 isFinite(asIs.p50))
 assert('CCPM p50 is finite',                  isFinite(ccpm.p50))
